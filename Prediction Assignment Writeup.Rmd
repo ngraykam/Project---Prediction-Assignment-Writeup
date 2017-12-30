@@ -1,0 +1,123 @@
+---
+title:'Peer-graded Assignment: Prediction Assignment Writeup'
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+# Prediction Assignment Writeup
+#### Raymond Ng on 30 December 2017
+#
+## Overview
+##### This project is to select a prediction model for predicting 20 test cases from a test dataset.
+#
+## Dataset Preparation
+```{r}
+# Load the libraries and datasets
+library(caret)
+library(rpart)
+library(randomForest)
+library(e1071)
+library(gbm)
+set.seed(1234)
+
+# Set the URLs
+TrainDataURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+TestDataURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# Download and clean the datasets
+TrainingData <- read.csv(url(TrainDataURL), na.strings=c("NA","#DIV/0!",""))
+TestingData <- read.csv(url(TestDataURL), na.strings=c("NA","#DIV/0!",""))
+
+# Check for the datasets dimemsions
+dim(TrainingData)
+dim(TestingData)
+
+# Delete columns with missing values
+TrainingData <-TrainingData[,colSums(is.na(TrainingData)) == 0]
+TestingData <-TestingData[,colSums(is.na(TestingData)) == 0]
+
+# Delete unused columns
+TrainingData <-TrainingData[,-c(1:7)]
+TestingData <-TestingData[,-c(1:7)]
+
+# Check for the datasets dimemsions
+dim(TrainingData)
+dim(TestingData)
+
+```
+## Dataset Partitioning
+
+```{r}
+# Partitions training dataset
+PartData <- createDataPartition(TrainingData$classe, p=0.7, list=FALSE)
+TrainingSet <- TrainingData[PartData, ]
+TestingSet <- TrainingData[-PartData, ]
+dim(TrainingSet)
+dim(TestingSet)
+
+```
+#### Examine the Training Dataset by Showing its Frequency 
+
+```{r}
+plot(TrainingSet$classe, col="black", main="Frequency of different levels", xlab="classe", ylab="Frequency")
+
+```
+
+#### Based on the frequency distribution, it shows that each level frequency is within the same order of magnitude of each other. Level A is the most frequent, and level D is the least frequent.
+
+
+## Prediction using Random Forest Model and Generalized Boosted Model
+
+#### 1. Random Forest
+
+```{r}
+# Fitting model
+model1 <- randomForest(classe ~., data=TrainingSet, method="class")
+
+# Predicting
+prediction1 <- predict(model1, TestingSet, Type="class")
+
+# Testing
+confusionMatrix(prediction1, TestingSet$classe)
+
+```
+
+#### 2. Generalized Boosted Model
+
+```{r}
+# Fitting model
+fitControl <- trainControl(method="repeatedcv", number=5, repeats=1)
+model2 <- train(classe ~., data=TrainingSet, method="gbm", trControl=fitControl, verbose=FALSE)
+
+# Predicting
+prediction2 <- predict(model2, TestingSet)
+
+# Testing
+confusionMatrix(prediction2, TestingSet$classe)
+
+```
+
+#### The accuracy of Random Forest is 99.64, which is higher than that by Generalized Boosted. The Random Forest
+#### model will be applied to predict the 20 quiz results.
+
+```{r}
+predictTest <- predict(model1, TestingData)
+predictTest
+
+```
+
+#### Submission
+
+```{r}
+# Create files for submission
+pml_write_files = function(x){
+n = length(x)
+for(i in 1:n){
+filename = paste0("problem_id_",i,".txt")
+write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+}
+}
+pml_write_files(predictTest)
+
+```
